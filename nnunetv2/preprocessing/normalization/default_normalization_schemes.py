@@ -24,6 +24,17 @@ class ImageNormalization(ABC):
         pass
 
 
+class CustomLitsNormalization(ImageNormalization):
+    leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = False
+
+    def run(self, image: np.ndarray, seg: np.ndarray = None) -> np.ndarray:
+        image = image.astype(self.target_dtype, copy=False)
+        image = np.clip(image, a_min=-250, a_max=250)
+        image -= image.min()
+        image /= np.clip(image.max(), a_min=1e-8, a_max=None)
+        return image
+
+
 class ZScoreNormalization(ImageNormalization):
     leaves_pixels_outside_mask_at_zero_if_use_mask_for_norm_is_true = True
 
