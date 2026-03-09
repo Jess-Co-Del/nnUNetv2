@@ -150,7 +150,7 @@ class nnUNetTrainer(object):
         self.num_val_iterations_per_epoch = 50
         self.num_epochs = 1000
         self.current_epoch = 0
-        self.enable_deep_supervision = True
+        self.enable_deep_supervision = False
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -902,7 +902,7 @@ class nnUNetTrainer(object):
         maybe_mkdir_p(self.output_folder)
 
         # make sure deep supervision is on in the network
-        self.set_deep_supervision_enabled(self.enable_deep_supervision)
+        #self.set_deep_supervision_enabled(self.enable_deep_supervision)
 
         self.print_plans()
         empty_cache(self.device)
