@@ -86,7 +86,6 @@ class CosineAnnealingLR_offset(CosineAnnealingLR):
             T_max,
             eta_min,
             last_epoch,
-            verbose,
         )
 
     def _get_closed_form_lr(self):

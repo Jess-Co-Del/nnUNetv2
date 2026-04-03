@@ -57,6 +57,7 @@ from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_lo
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
 from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
+from nnunetv2.training.lr_scheduler.warmup import CosineAnnealingLR_offset
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
@@ -142,8 +143,8 @@ class nnUNetTrainer(object):
                 if self.is_cascaded else None
 
         ### Some hyperparameters for you to fiddle with
-        self.initial_lr = 1e-2
-        self.weight_decay = 3e-5
+        self.initial_lr = 1.5e-4
+        self.weight_decay = 5e-3
         self.oversample_foreground_percent = 0.33
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
@@ -505,9 +506,13 @@ class nnUNetTrainer(object):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-                                    momentum=0.99, nesterov=True)
-        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+        # optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+        #                             momentum=0.99, nesterov=True)
+        optimizer = torch.optim.AdamW(self.network.parameters(), self.initial_lr, 
+                                      weight_decay=self.weight_decay, betas=(0.9, 0.95))
+        #lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+        
+        lr_scheduler = CosineAnnealingLR_offset(optimizer, self.num_epochs, eta_min=1e-8)
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
@@ -987,6 +992,7 @@ class nnUNetTrainer(object):
         # So autocast will only be active if we have a cuda device.
         with autocast(self.device.type, enabled=True) if self.device.type == 'cuda' else dummy_context():
             output = self.network(data)
+            # print(output.shape, target.shape)
             # del data
             l = self.loss(output, target)
 
