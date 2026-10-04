@@ -101,7 +101,10 @@ class ExperimentPlanner(object):
         Works for PlainConvUNet, ResidualEncoderUNet
         """
         a = torch.get_num_threads()
-        torch.set_num_threads(get_allowed_n_proc_DA())
+        # max(..., 1): get_allowed_n_proc_DA() legitimately returns 0 to mean "no DA worker processes",
+        # but torch.set_num_threads needs a positive int (newer torch raises on 0; older torch silently
+        # accepted it, which is why this only surfaces on newer installs).
+        torch.set_num_threads(max(get_allowed_n_proc_DA(), 1))
         # print(f'instantiating network, patch size {patch_size}, pool op: {arch_kwargs["strides"]}')
         net = get_network_from_plans(arch_class_name, arch_kwargs, arch_kwargs_req_import, input_channels,
                                      output_channels,
