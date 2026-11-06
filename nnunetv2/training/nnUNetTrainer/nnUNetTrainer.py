@@ -40,7 +40,10 @@ from torch import autocast, nn
 from torch import distributed as dist
 from torch._dynamo import OptimizedModule
 from torch.cuda import device_count
-from torch import GradScaler
+try:
+   from torch import GradScaler           # torch >= 2.3
+except ImportError:
+   from torch.cuda.amp import GradScaler  # torch < 2.3
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nnunetv2.configuration import ANISO_THRESHOLD, default_num_processes
@@ -161,7 +164,7 @@ class nnUNetTrainer(object):
         self.num_input_channels = None  # -> self.initialize()
         self.network = None  # -> self.build_network_architecture()
         self.optimizer = self.lr_scheduler = None  # -> self.initialize
-        self.grad_scaler = GradScaler("cuda") if self.device.type == 'cuda' else None
+        self.grad_scaler = GradScaler() if self.device.type == 'cuda' else None
         self.loss = None  # -> self.initialize
 
         ### Simple logging. Don't take that away from me!
@@ -506,13 +509,13 @@ class nnUNetTrainer(object):
             self.print_to_log_file('These are the global plan.json settings:\n', dct, '\n', add_timestamp=False)
 
     def configure_optimizers(self):
-        # optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
-        #                             momentum=0.99, nesterov=True)
-        optimizer = torch.optim.AdamW(self.network.parameters(), self.initial_lr, 
-                                      weight_decay=self.weight_decay, betas=(0.9, 0.95))
-        #lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
-        
-        lr_scheduler = CosineAnnealingLR_offset(optimizer, self.num_epochs, eta_min=1e-8)
+        optimizer = torch.optim.SGD(
+            self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+            momentum=0.99, nesterov=True)
+        #optimizer = torch.optim.AdamW(self.network.parameters(), self.initial_lr, 
+        #                              weight_decay=self.weight_decay, betas=(0.9, 0.95))
+        lr_scheduler = PolyLRScheduler(optimizer, self.initial_lr, self.num_epochs)
+
         return optimizer, lr_scheduler
 
     def plot_network_architecture(self):
@@ -581,7 +584,7 @@ class nnUNetTrainer(object):
             if not isfile(splits_file):
                 self.print_to_log_file("Creating new 5-fold cross-validation split...")
                 all_keys_sorted = list(np.sort(list(dataset.identifiers)))
-                splits = generate_crossval_split(all_keys_sorted, seed=12345, n_splits=5)
+                splits = generate_crossval_split(all_keys_sorted, seed=258965, n_splits=3)
                 save_json(splits, splits_file)
 
             else:
